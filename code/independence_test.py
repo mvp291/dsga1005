@@ -2,7 +2,7 @@
 # @Author: Maria Elena Villalobos Ponte
 # @Date:   2016-11-22 20:41:39
 # @Last Modified by:   Maria Elena Villalobos Ponte
-# @Last Modified time: 2016-11-22 20:50:10
+# @Last Modified time: 2016-12-01 14:26:03
 import numpy as np
 from scipy.stats import gamma
 from itertools import permutations, combinations
@@ -27,7 +27,7 @@ class HSIC_b:
         self.H = np.eye(self.n) - np.ones((self.n, self.n)) * (1.0 / self.n)
         self._expected_value = None
         self._variance = None
-        self._pvalue = None
+        self._p_value = None
 
     @staticmethod
     def __median_dist(X, max_points=100):
@@ -88,6 +88,7 @@ class HSIC_b:
         if not self._p_value:
             a = self.alpha()
             b = self.beta()
-            res = gamma.sf(self.n * self.empirical_test(), a, scale=b)
+            res = gamma.cdf(self.n * self.empirical_test(), a, scale=b)
             self._p_value = res
         return self._p_value
+
