@@ -2,11 +2,19 @@
 # @Author: Maria Elena Villalobos Ponte
 # @Date:   2016-11-22 20:41:39
 # @Last Modified by:   Maria Elena Villalobos Ponte
-# @Last Modified time: 2016-12-01 14:26:03
+# @Last Modified time: 2016-12-14 13:27:31
 import numpy as np
+from numpy import linalg as LA
 from scipy.stats import gamma
 from itertools import permutations, combinations
 from sklearn.metrics.pairwise import rbf_kernel, laplacian_kernel
+
+def median_dist(X, max_points=100):
+        """Median distance between datapoints calculated for at most 100 elements"""
+        if len(X) < max_points:
+            max_points = len(X)
+        res = np.median([np.abs(x1 - x2) for x1, x2 in combinations(X[:100], 2)])
+        return res
 
 
 class HSIC_b:
@@ -18,8 +26,8 @@ class HSIC_b:
             apply_kernel = laplacian_kernel
 
         # Set kernel variance to median distance between points
-        gamma_X = self.__median_dist(X)
-        gamma_Y = self.__median_dist(Y)
+        gamma_X = median_dist(X)
+        gamma_Y = median_dist(Y)
         # gamma_X, gamma_Y = None, None
 
         self.K = apply_kernel(X.reshape(-1, 1), gamma=gamma_X)
@@ -88,7 +96,7 @@ class HSIC_b:
         if not self._p_value:
             a = self.alpha()
             b = self.beta()
-            res = gamma.cdf(self.n * self.empirical_test(), a, scale=b)
+            res = gamma.sf(self.n * self.empirical_test(), a, scale=b)
             self._p_value = res
         return self._p_value
 
