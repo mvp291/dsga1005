@@ -2,7 +2,7 @@
 # @Author: Maria Elena Villalobos Ponte
 # @Date:   2016-11-22 20:41:39
 # @Last Modified by:   Maria Elena Villalobos Ponte
-# @Last Modified time: 2016-12-14 20:07:15
+# @Last Modified time: 2016-12-14 22:09:28
 from __future__ import division
 import numpy as np
 from numpy import linalg as LA
@@ -89,6 +89,6 @@ class HSIC_b:
         if not self._p_value:
             a = self.alpha()
             b = self.beta()
-            res = gamma.sf(self.n * self.empirical_test(), a, scale=b)
+            res = gamma.cdf(self.n * self.empirical_test(), a, scale=b)
             self._p_value = res
         return self._p_value
