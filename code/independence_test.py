@@ -2,7 +2,8 @@
 # @Author: Maria Elena Villalobos Ponte
 # @Date:   2016-11-22 20:41:39
 # @Last Modified by:   Maria Elena Villalobos Ponte
-# @Last Modified time: 2016-12-14 13:27:31
+# @Last Modified time: 2016-12-14 20:07:15
+from __future__ import division
 import numpy as np
 from numpy import linalg as LA
 from scipy.stats import gamma
@@ -10,12 +11,14 @@ from itertools import permutations, combinations
 from sklearn.metrics.pairwise import rbf_kernel, laplacian_kernel
 
 def median_dist(X, max_points=100):
-        """Median distance between datapoints calculated for at most 100 elements"""
+        """ Median distance between datapoints calculated for at most 100 elements
+           to use in rbf_kernel method as specified by the median heuristic 
+           (Scholkopf and Smola, 2002)
+        """
         if len(X) < max_points:
             max_points = len(X)
-        res = np.median([np.abs(x1 - x2) for x1, x2 in combinations(X[:100], 2)])
+        res = np.sqrt(0.5 * np.median([np.linalg.norm(x1 - x2) for x1, x2 in combinations(X[:100], 2)]))
         return res
-
 
 class HSIC_b:
     def __init__(self, X, Y, kernel='exponential'):
@@ -28,35 +31,29 @@ class HSIC_b:
         # Set kernel variance to median distance between points
         gamma_X = median_dist(X)
         gamma_Y = median_dist(Y)
-        # gamma_X, gamma_Y = None, None
 
         self.K = apply_kernel(X.reshape(-1, 1), gamma=gamma_X)
         self.L = apply_kernel(Y.reshape(-1, 1), gamma=gamma_Y)
-        self.H = np.eye(self.n) - np.ones((self.n, self.n)) * (1.0 / self.n)
+        H = np.identity(self.n) - np.ones((self.n, self.n), dtype = float) / self.n
+
+        self.HKH = np.dot(np.dot(H, self.K), H)
+        self.HLH = np.dot(np.dot(H, self.L), H)
+
         self._expected_value = None
         self._variance = None
         self._p_value = None
 
-    @staticmethod
-    def __median_dist(X, max_points=100):
-        """Median distance between datapoints calculated for at most 100 elements"""
-        if len(X) < max_points:
-            max_points = len(X)
-        res = np.median([np.abs(x1 - x2) for x1, x2 in combinations(X[:100], 2)])
-        return res
-
     def empirical_test(self):
-        """Calculated empirical test value"""
-        test = np.trace(np.dot(np.dot(np.dot(self.K, self.H), self.L), self.H)) / (self.n ** 2)
+        """Calculated empirical test value (HSIC)"""
+        HKHLH = np.dot(self.HKH, self.HLH)
+        test = np.trace(HKHLH) / ((self.n - 1) ** 2)
         return test
 
     @staticmethod
     def __mean_squared_norm(kernel):
-        n = len(kernel)
-        samples_wo_replacement = list(permutations(range(n), 2))
-        n_2 = len(samples_wo_replacement)
-        sum_pairs = np.array([kernel[ix] for ix in samples_wo_replacement]).sum()
-        res = n_2**(-1) * sum_pairs
+        n = kernel.shape[0]
+        n_2 = n * (n - 1)
+        res = (np.sum(kernel) - np.trace(kernel)) / n_2
         return res
 
     @property
@@ -64,23 +61,19 @@ class HSIC_b:
         if not self._expected_value:
             mu_x_norm = self.__mean_squared_norm(self.K)
             mu_y_norm = self.__mean_squared_norm(self.L)
-            res = (1.0 / self.n) * \
-                  (1 + mu_x_norm * mu_y_norm - mu_x_norm - mu_y_norm)
+            res = (1 + mu_x_norm * mu_y_norm - mu_x_norm - mu_y_norm) / self.n
             self._expected_value = res
         return self._expected_value
 
     @property
     def variance(self):
         if not self._variance:
-            num = (2.0 * (self.n - 4) * (self.n - 5))
-            den = ((self.n) * (self.n - 1) * (self.n - 2) * (self.n - 3))
+            num = 2.0 * (self.n - 4) * (self.n - 5)
+            den = (self.n) * (self.n - 1) * (self.n - 2) * (self.n - 3) * ((self.n-1) ** 4)
             scaling = num / den
-            HKH = np.dot(np.dot(self.H, self.K), self.H)
-            HLH = np.dot(np.dot(self.H, self.L), self.H)
-            B = (HKH * HLH) ** 2
-            one = np.ones(len(B))
-            B_diag = np.diag(np.diag(B))
-            B_term = np.dot(np.dot(one, (B - B_diag)), one)
+            B = (self.HKH * self.HLH) ** 2
+            # B_diag = np.diag(np.diag(B))
+            B_term = (np.sum(B) - np.trace(B))
             res = scaling * B_term
             self._variance = res
         return self._variance
@@ -99,4 +92,3 @@ class HSIC_b:
             res = gamma.sf(self.n * self.empirical_test(), a, scale=b)
             self._p_value = res
         return self._p_value
-
