@@ -9,7 +9,7 @@ import itertools
 
 def compute_gp_regression(X_train, y_train, X_test):
     model = pyGPs.GPR()
-    m = pyGPs.mean.Const(y_train.mean())
+    m = pyGPs.mean.Const(0)
     k = pyGPs.cov.RBF()
     model.setPrior(mean=m, kernel=k)
     model.optimize(X_train, y_train)
@@ -89,10 +89,12 @@ def ANM_algorithm(X, y, hsic='py', alpha=0.05):
     df.columns = ['Direction', 'Rank', 'P_value Independence X and Y']
     return df.sort_values('Rank', ascending=False)
 
-def ANM_algorithm_with_test(X, y, hsic='py', alpha=0.05):
+def ANM_algorithm_with_test(X, y, hsic='py', alpha=0.05, test='smc-zf'):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
     leakage_dict = dict()
     variables = X.columns
+    X_indep = X.copy(deep=True)
+    X_indep['target'] = y
     for col in variables:
         x_train_column = np.array(X_train[col])
         x_test_column = np.array(X_test[col])
@@ -131,9 +133,9 @@ def ANM_algorithm_with_test(X, y, hsic='py', alpha=0.05):
             list_candidates.remove(col)
             list_sets_candidates = [c for i in range(len(list_candidates)) for c in itertools.combinations(list_candidates, i + 1)]
             list_sets_candidates = [list(elem) for elem in list_sets_candidates]
-            X['target'] = y
             for set in list_sets_candidates:
-                ci = CI(col, 'target', set, X)
+                ci = CI(col, 'target', set, X_indep, test=test)
+                print set, ci.p_value
                 if ci.p_value>alpha:
                     leakage_dir = "Column: "+ col + " is independent of target given " + str(set)
                     break
